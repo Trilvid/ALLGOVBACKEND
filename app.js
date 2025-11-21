@@ -12,12 +12,13 @@ const app = express();
 app.use(helmet());
 
 // CORS configuration
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173' || 'http://localhost:5174',
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+// const corsOptions = {
+//   origin: process.env.FRONTEND_URL || 'http://localhost:5173' || 'http://localhost:5174',
+//   credentials: true,
+//   optionsSuccessStatus: 200
+// };
+// app.use(cors(corsOptions));
+app.use(cors());
 
 // Body parser middleware
 app.use(express.json({ limit: '100mb' }));
