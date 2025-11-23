@@ -31,7 +31,7 @@ app.use(mongoSanitize());
 app.use(compression());
 
 // Logging middleware
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === 'production') {
   app.use(morgan('dev'));
 } else {
   app.use(morgan('combined'));

@@ -63,6 +63,27 @@ exports.protect = async (req, res, next) => {
   }
 };
 
+
+// ✅ NEW - Admin middleware
+exports.admin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Not authorized'
+    });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin privileges required.'
+    });
+  }
+
+  next();
+};
+
+
 // Check if user is admin (optional, for future use)
 exports.authorize = (...roles) => {
   return (req, res, next) => {
@@ -98,7 +119,7 @@ exports.loginLimiter = rateLimit({
 
 exports.apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per windowMs
+  max: 10, // 10 requests per windowMs
   message: {
     success: false,
     message: 'Too many requests, please try again later'
