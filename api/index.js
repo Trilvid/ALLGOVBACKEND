@@ -148,6 +148,8 @@ connectToDatabase();
 // ---------------------
 const allowedOrigins = [
   "https://www.allgovpay.com", // <- your provided domain
+  "https://allgovpay.com", // <- your provided domain
+  "https://allgov-three.vercel.app", // <- your provided domain
   "http://localhost:3000",
 ];
 
