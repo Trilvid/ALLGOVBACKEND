@@ -257,15 +257,14 @@ app.use(upstashRateLimitMiddleware);
 // ---------------------
 // 4. ROUTES
 // ---------------------
-try {
   const authRoutes = require("../routes/authRoutes");
   const userRoutes = require("../routes/userRoutes");
   const adminRoutes = require("../routes/adminRoutes");
   const paymentRoutes = require("../routes/paymentRoutes");
   const taxRoutes = require("../routes/taxRoutes");
 
-  const authController = require("./controllers/authController");
-  const { protect } = require("./middleware/auth");
+  const authController = require("../controllers/authController");
+  const { protect } = require("../middleware/auth");
 
   app.use("/api/auth", authRoutes);
   app.use("/api/users", userRoutes);
@@ -275,10 +274,6 @@ try {
 
   // Example protected endpoint
   app.get("/api/users/getData", protect, authController.getMe);
-} catch (err) {
-  // If routes fail to load, log error but keep serverless function from throwing an uncaught exception
-  console.error("Route loading error (continuing):", err && err.message ? err.message : err);
-}
 
 // ---------------------
 // 5. INFO & ROOT ROUTES
