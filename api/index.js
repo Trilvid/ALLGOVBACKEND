@@ -49,16 +49,17 @@ const allowedOrigins = [
   'https://www.allgovpay.com',
   "https://allgovpay.com", // <- your provided domain
   "https://allgov-three.vercel.app", // <- your provided domain
-  "http://localhost:3000",
+  "http://localhost:5173",
 ];
 
 
 app.use(cors({
-  origin: allowedOrigins, // Passing the array directly usually works better than a function for simple lists
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicit methods
-  allowedHeaders: ['Content-Type', 'Authorization'] // Explicit headers
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Access-Token', 'x-access-token'] // Explicit headers
+})
+);
 
 app.options('*', cors());
 
