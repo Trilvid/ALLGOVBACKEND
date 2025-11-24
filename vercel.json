@@ -3,13 +3,7 @@
     "api/index.js": {
       "runtime": "nodejs20.x",
       "maxDuration": 20,
-      "includeFiles": [
-        "controllers/**",
-        "middleware/**",
-        "models/**",
-        "utils/**",
-        "routes/**"
-      ]
+      "includeFiles": "{controllers,middleware,models,utils,routes}/**"
     }
   },
   "rewrites": [
