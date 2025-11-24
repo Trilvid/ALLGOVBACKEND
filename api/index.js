@@ -148,22 +148,33 @@ connectToDatabase();
 // ---------------------
 const allowedOrigins = [
   "https://www.allgovpay.com", // <- your provided domain
+  'https://www.allgovpay.com',
   "https://allgovpay.com", // <- your provided domain
   "https://allgov-three.vercel.app", // <- your provided domain
   "http://localhost:3000",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // allow tools like Postman (no origin) and same-origin
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error("CORS blocked: " + origin));
-    },
-    credentials: true,
-  })
-);
+
+app.use(cors({
+  origin: allowedOrigins, // Passing the array directly usually works better than a function for simple lists
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicit methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Explicit headers
+}));
+
+app.options('*', cors());
+
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       // allow tools like Postman (no origin) and same-origin
+//       if (!origin) return callback(null, true);
+//       if (allowedOrigins.includes(origin)) return callback(null, true);
+//       return callback(new Error("CORS blocked: " + origin));
+//     },
+//     credentials: true,
+//   })
+// );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
