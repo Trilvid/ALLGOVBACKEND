@@ -9,6 +9,8 @@ const { Ratelimit } = require("@upstash/ratelimit");
 const { Redis } = require("@upstash/redis");
 
 const app = express();
+
+app.set('trust proxy', true);
 console.log("--- VERCEL API FUNCTION INVOKED ---");
 
 // ---------------------
