@@ -103,68 +103,68 @@ try {
   console.warn("Upstash init failed — rate limiting disabled:", err && err.message ? err.message : err);
 }
 
-// Middleware to check cf-bot-score (optional but helpful)
-const cfBotScoreMiddleware = (req, res, next) => {
-  try {
-    const scoreHeader = req.headers["cf-bot-score"];
-    if (scoreHeader) {
-      const score = Number(scoreHeader);
-      // block requests that look extremely bot-like (tune threshold if needed)
-      if (!isNaN(score) && score < 30) {
-        return res.status(403).json({ success: false, message: "Blocked by Cloudflare bot score" });
-      }
-    }
-  } catch (err) {
-    // don't crash on header parse errors
-    console.warn("cf-bot-score parse error:", err && err.message ? err.message : err);
-  }
-  next();
-};
+// // Middleware to check cf-bot-score (optional but helpful)
+// const cfBotScoreMiddleware = (req, res, next) => {
+//   try {
+//     const scoreHeader = req.headers["cf-bot-score"];
+//     if (scoreHeader) {
+//       const score = Number(scoreHeader);
+//       // block requests that look extremely bot-like (tune threshold if needed)
+//       if (!isNaN(score) && score < 30) {
+//         return res.status(403).json({ success: false, message: "Blocked by Cloudflare bot score" });
+//       }
+//     }
+//   } catch (err) {
+//     // don't crash on header parse errors
+//     console.warn("cf-bot-score parse error:", err && err.message ? err.message : err);
+//   }
+//   next();
+// };
 
-// General rate-limit middleware using Upstash
-const upstashRateLimitMiddleware = async (req, res, next) => {
-  try {
-    if (!ratelimit) return next(); // Upstash not configured — skip (but recommended to set env vars)
+// // General rate-limit middleware using Upstash
+// const upstashRateLimitMiddleware = async (req, res, next) => {
+//   try {
+//     if (!ratelimit) return next(); // Upstash not configured — skip (but recommended to set env vars)
 
-    // Identify by IP provided by Vercel/Cloudflare
-    const ip =
-      req.headers["cf-connecting-ip"] ||
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      req.ip ||
-      "unknown";
+//     // Identify by IP provided by Vercel/Cloudflare
+//     const ip =
+//       req.headers["cf-connecting-ip"] ||
+//       req.headers["x-forwarded-for"] ||
+//       req.socket.remoteAddress ||
+//       req.ip ||
+//       "unknown";
 
-    // call Upstash
-    const rlRes = await ratelimit.limit(ip);
-    // rlRes shape may vary — defensive check
-    const success = rlRes && (rlRes.success === true || rlRes.allowed === true || rlRes.limit === undefined ? true : rlRes.success);
+//     // call Upstash
+//     const rlRes = await ratelimit.limit(ip);
+//     // rlRes shape may vary — defensive check
+//     const success = rlRes && (rlRes.success === true || rlRes.allowed === true || rlRes.limit === undefined ? true : rlRes.success);
 
-    if (!success) {
-      // Optionally include Retry-After header if Upstash returned reset time
-      if (rlRes && rlRes.reset) {
-        res.setHeader("Retry-After", Math.ceil((rlRes.reset - Date.now()) / 1000));
-      }
-      return res.status(429).json({ success: false, message: "Too many requests. Slow down." });
-    }
+//     if (!success) {
+//       // Optionally include Retry-After header if Upstash returned reset time
+//       if (rlRes && rlRes.reset) {
+//         res.setHeader("Retry-After", Math.ceil((rlRes.reset - Date.now()) / 1000));
+//       }
+//       return res.status(429).json({ success: false, message: "Too many requests. Slow down." });
+//     }
 
-    // Optionally set headers with remaining quota info
-    if (rlRes && rlRes.limit) {
-      res.setHeader("X-RateLimit-Limit", rlRes.limit);
-      if (rlRes.remaining !== undefined) res.setHeader("X-RateLimit-Remaining", rlRes.remaining);
-      if (rlRes.reset) res.setHeader("X-RateLimit-Reset", Math.ceil(rlRes.reset / 1000));
-    }
+//     // Optionally set headers with remaining quota info
+//     if (rlRes && rlRes.limit) {
+//       res.setHeader("X-RateLimit-Limit", rlRes.limit);
+//       if (rlRes.remaining !== undefined) res.setHeader("X-RateLimit-Remaining", rlRes.remaining);
+//       if (rlRes.reset) res.setHeader("X-RateLimit-Reset", Math.ceil(rlRes.reset / 1000));
+//     }
 
-    next();
-  } catch (err) {
-    // On error, don't block legitimate traffic — log and proceed
-    console.warn("Upstash rate limit error:", err && err.message ? err.message : err);
-    next();
-  }
-};
+//     next();
+//   } catch (err) {
+//     // On error, don't block legitimate traffic — log and proceed
+//     console.warn("Upstash rate limit error:", err && err.message ? err.message : err);
+//     next();
+//   }
+// };
 
-// Apply bot-score middleware first, then rate limiter
-app.use(cfBotScoreMiddleware);
-app.use(upstashRateLimitMiddleware);
+// // Apply bot-score middleware first, then rate limiter
+// app.use(cfBotScoreMiddleware);
+// app.use(upstashRateLimitMiddleware);
 
 // ---------------------
 // 4. ROUTES
