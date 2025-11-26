@@ -169,7 +169,7 @@ router.put('/kyc/:userId/reject', protect, admin, rejectKYC);
 router.put('/kyc/:userId/reset', protect, admin, resetKYC);
 
 router.use(protect);
-router.use(admin);
+// router.use(admin);
 
 // Payment management routes
 router.get('/payments', getAllPayments);

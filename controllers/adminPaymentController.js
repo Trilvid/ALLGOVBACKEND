@@ -544,6 +544,7 @@ exports.getPaymentStats = async (req, res) => {
       : 0;
 
     res.status(200).json({
+      status: 200,
       success: true,
       data: {
         thisMonth: {
