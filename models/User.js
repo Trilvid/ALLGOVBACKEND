@@ -18,7 +18,8 @@ const transactionSchema = new mongoose.Schema({
   },
   reference: {
     type: String,
-    unique: true
+    unique: true,
+    sparse: true
   },
   description: String,
   date: {
