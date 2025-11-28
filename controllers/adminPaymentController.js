@@ -572,7 +572,6 @@ exports.getPaymentStats = async (req, res) => {
   }
 };
 
-// hello world 
 
 // @desc    Get top paying users
 // @route   GET /api/admin/payments/top-users
