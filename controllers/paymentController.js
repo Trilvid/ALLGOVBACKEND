@@ -93,10 +93,13 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
+    console.log('🔍 Verifying payment with reference:', reference);
+
     // Verify payment with Paystack
     const verification = await paystackService.verifyTransaction(reference);
 
     if (!verification.status) {
+      console.error('❌ Paystack verification failed:', verification.message);
       return res.status(400).json({
         success: false,
         message: 'Payment verification failed',
@@ -105,9 +108,11 @@ exports.verifyPayment = async (req, res) => {
     }
 
     const paymentData = verification.data;
+    console.log('✅ Paystack verification successful:', paymentData.status);
 
     // Check if payment was successful
     if (paymentData.status !== 'success') {
+      console.log('⚠️ Payment status is not success:', paymentData.status);
       return res.status(400).json({
         success: false,
         message: 'Payment was not successful',
@@ -115,7 +120,8 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.userId);
+    // Get user with explicit selection of balance field
+    const user = await User.findById(req.userId).select('+balance +transaction');
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -123,18 +129,26 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
+    console.log('👤 User found:', user.email);
+    console.log('💰 Current balance:', user.balance);
+
     // Find the transaction
-    const transaction = user.transaction.find(t => t.reference === reference);
+    const transactionIndex = user.transaction.findIndex(t => t.reference === reference);
     
-    if (!transaction) {
+    if (transactionIndex === -1) {
+      console.error('❌ Transaction not found with reference:', reference);
       return res.status(404).json({
         success: false,
         message: 'Transaction not found'
       });
     }
 
-    // Check if already processed
+    const transaction = user.transaction[transactionIndex];
+    console.log('📝 Transaction found:', transaction.type, transaction.status);
+
+    // Check if already processed (prevent duplicate processing)
     if (transaction.status === 'completed') {
+      console.log('⚠️ Transaction already processed');
       return res.json({
         success: true,
         message: 'Payment already processed',
@@ -145,30 +159,55 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    // Update transaction status
-    transaction.status = 'completed';
-    
-    // Update user balance
-    const amount = paymentData.amount / 100; // Convert from kobo to naira
-    user.balance += amount;
+    // Calculate amount (convert from kobo to naira)
+    const amount = paymentData.amount / 100;
+    console.log('💵 Amount to add:', amount);
 
+    // Store old balance for verification
+    const oldBalance = user.balance || 0;
+    console.log('📊 Old balance:', oldBalance);
+
+    // Update transaction status
+    user.transaction[transactionIndex].status = 'completed';
+    user.transaction[transactionIndex].timestamp = new Date();
+    
+    // Update user balance - CRITICAL UPDATE
+    user.balance = oldBalance + amount;
+    console.log('📊 New balance should be:', user.balance);
+
+    // Mark as modified to ensure Mongoose saves it
+    user.markModified('transaction');
+    user.markModified('balance');
+
+    // Save to database
     await user.save();
+    console.log('💾 User saved to database');
+
+    // Verify the save worked by fetching again
+    const verifyUser = await User.findById(req.userId).select('balance');
+    console.log('✅ Verified balance in database:', verifyUser.balance);
 
     // Send notification
-    await notificationService.walletFunded(user._id, amount);
+    try {
+      await notificationService.walletFunded(user._id, amount);
+      console.log('📬 Notification sent');
+    } catch (notifError) {
+      console.error('⚠️ Notification failed but payment successful:', notifError);
+    }
 
     res.json({
       success: true,
       message: 'Payment verified successfully',
       data: {
         amount: amount,
-        balance: user.balance,
+        previousBalance: oldBalance,
+        newBalance: verifyUser.balance,
         reference: reference,
         transactionDate: transaction.date
       }
     });
   } catch (error) {
-    console.error('Verify payment error:', error);
+    console.error('❌ Verify payment error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -188,6 +227,7 @@ exports.paystackWebhook = async (req, res) => {
       .digest('hex');
 
     if (hash !== req.headers['x-paystack-signature']) {
+      console.error('❌ Invalid webhook signature');
       return res.status(401).json({
         success: false,
         message: 'Invalid signature'
@@ -195,13 +235,17 @@ exports.paystackWebhook = async (req, res) => {
     }
 
     const event = req.body;
+    console.log('📨 Webhook received:', event.event);
 
     // Handle successful charge
     if (event.event === 'charge.success') {
       const { reference, metadata, amount, status } = event.data;
 
+      console.log('💳 Processing successful charge:', reference);
+
       const user = await User.findById(metadata.userId);
       if (!user) {
+        console.error('❌ User not found:', metadata.userId);
         return res.status(404).json({
           success: false,
           message: 'User not found'
@@ -209,17 +253,47 @@ exports.paystackWebhook = async (req, res) => {
       }
 
       // Find and update transaction
-      const transaction = user.transaction.find(t => t.reference === reference);
-      if (transaction && transaction.status === 'pending') {
-        transaction.status = 'completed';
-        user.balance += amount / 100;
-        await user.save();
+      const transactionIndex = user.transaction.findIndex(t => t.reference === reference);
+      
+      if (transactionIndex !== -1) {
+        const transaction = user.transaction[transactionIndex];
+        
+        if (transaction.status === 'pending') {
+          const amountInNaira = amount / 100;
+          
+          // Update transaction
+          user.transaction[transactionIndex].status = 'completed';
+          user.transaction[transactionIndex].timestamp = new Date();
+          
+          // Update balance
+          const oldBalance = user.balance || 0;
+          user.balance = oldBalance + amountInNaira;
+          
+          // Mark as modified
+          user.markModified('transaction');
+          user.markModified('balance');
+          
+          await user.save();
+          
+          console.log('✅ Webhook: Balance updated from', oldBalance, 'to', user.balance);
+          
+          // Send notification
+          try {
+            await notificationService.walletFunded(user._id, amountInNaira);
+          } catch (notifError) {
+            console.error('⚠️ Notification error:', notifError);
+          }
+        } else {
+          console.log('⚠️ Transaction already processed');
+        }
+      } else {
+        console.error('❌ Transaction not found:', reference);
       }
     }
 
     res.sendStatus(200);
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error('❌ Webhook error:', error);
     res.status(500).json({
       success: false,
       message: 'Webhook processing failed',
