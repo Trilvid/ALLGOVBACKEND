@@ -251,13 +251,13 @@ exports.requestPinChangeCode = async (req, res) => {
       to: user.email,
       email: user.email,
       subject: 'Transaction PIN Change Verification',
-      text: `Your verification code is: ${code}. Valid for 10 minutes.`
+      html: `Your verification code is: ${code}. Valid for 10 minutes.`
     });
 
     // Mask email for response
     const maskedEmail = user.email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
 
-    console.log({code, maskedEmail})
+    // console.log({code, maskedEmail})
 
     res.json({ 
       code,

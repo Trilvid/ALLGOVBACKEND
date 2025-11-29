@@ -154,7 +154,9 @@ exports.verifyPayment = async (req, res) => {
         message: 'Payment already processed',
         data: {
           amount: transaction.amount,
-          balance: user.balance
+          balance: user.balance,
+          reference,
+          transactionDate: transaction.date
         }
       });
     }
