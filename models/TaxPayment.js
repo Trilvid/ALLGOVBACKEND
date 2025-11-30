@@ -39,7 +39,7 @@ const taxPaymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'processing',],
+    enum: ['pending', 'completed', 'failed', 'processing', 'refunded'],
     default: 'pending'
   },
   reference: {
