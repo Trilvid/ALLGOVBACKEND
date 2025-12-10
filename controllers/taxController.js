@@ -3,17 +3,104 @@ const { TaxPayment, TaxSubscription } = require('../models/TaxPayment');
 const paystackService = require('../services/paystackService');
 const { generateReference, generateTransactionId } = require('../utils/helpers');
 
+// ✅ HELPER FUNCTION: Auto-create subscription for recurring payment plans
+async function createAutoSubscription(userId, taxType, amount, paymentPlan, taxPaymentId) {
+  try {
+    console.log(`🔄 Checking subscription creation for ${taxType} - ${paymentPlan}`);
+
+    const recurringPlans = ['Monthly', 'Quarterly', 'Annually'];
+
+    if (!recurringPlans.includes(paymentPlan)) {
+      console.log(`⏭️  One-time payment - no subscription created`);
+      return null;
+    }
+
+    const normalizedPlan = paymentPlan.charAt(0).toUpperCase() + paymentPlan.slice(1).toLowerCase();
+    const startDate = new Date();
+    let expiryDate = new Date();
+
+    switch (normalizedPlan) {
+      case 'Monthly':
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        break;
+      case 'Quarterly':
+        expiryDate.setMonth(expiryDate.getMonth() + 3);
+        break;
+      case 'Annually':
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        break;
+    }
+
+    const existingSub = await TaxSubscription.findOne({
+      userId,
+      taxType,
+      status: 'Active'
+    });
+
+    if (existingSub) {
+      console.log(`✅ Updating existing subscription for ${taxType}`);
+      existingSub.expiryDate = expiryDate;
+      existingSub.lastPaymentDate = new Date();
+      existingSub.totalPaid += amount;
+      existingSub.paymentHistory.push({
+        amount,
+        date: new Date(),
+        status: 'completed',
+        reference: taxPaymentId
+      });
+      existingSub.calculateNextPayment();
+      await existingSub.save();
+      return existingSub;
+    }
+
+    const subscription = new TaxSubscription({
+      userId,
+      name: `${normalizedPlan} ${taxType} Tax`,
+      taxType,
+      amount,
+      frequency: normalizedPlan,
+      startDate,
+      expiryDate,
+      autoRenew: true,
+      lastPaymentDate: new Date(),
+      totalPaid: amount,
+      paymentHistory: [{
+        amount,
+        date: new Date(),
+        status: 'completed',
+        reference: taxPaymentId
+      }]
+    });
+
+    subscription.calculateNextPayment();
+    await subscription.save();
+    console.log(`✅ Created subscription: ${subscription.name}, autoRenew: ${subscription.autoRenew}`);
+    return subscription;
+  } catch (error) {
+    console.error('❌ Subscription error:', error);
+    return null;
+  }
+}
+
 // @desc    Initialize tax payment
 // @route   POST /api/tax/pay
 // @access  Private
 exports.initiateTaxPayment = async (req, res) => {
   try {
-    const { taxType, paymentPlan, payFor, amount, beneficiaryInfo, vehicleInfo } = req.body;
+    const { taxType, paymentPlan, payFor, amount, beneficiaryInfo, taxLocation } = req.body;
 
     if (!taxType || !paymentPlan || !amount) {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields'
+      });
+    }
+
+    // ✅ Validate taxLocation
+    if (!taxLocation || !taxLocation.state) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide tax payment location (state is required)'
       });
     }
 
@@ -32,9 +119,8 @@ exports.initiateTaxPayment = async (req, res) => {
       });
     }
 
-    // Check if user has sufficient balance for wallet payment
     const paymentMethod = req.body.paymentMethod || 'paystack';
-    
+
     if (paymentMethod === 'wallet') {
       if (user.balance < amount) {
         return res.status(400).json({
@@ -44,7 +130,6 @@ exports.initiateTaxPayment = async (req, res) => {
       }
     }
 
-    // Create tax payment record
     const taxPayment = new TaxPayment({
       userId: user._id,
       taxPaymentId: generateTransactionId(),
@@ -54,19 +139,19 @@ exports.initiateTaxPayment = async (req, res) => {
       amount,
       reference: generateReference(),
       beneficiaryInfo: payFor === 'Others' ? beneficiaryInfo : null,
-      metadata: {
-        vehicleInfo: vehicleInfo || user.vehicleInfo
+      taxLocation: {
+        country: taxLocation.country || 'Nigeria',
+        state: taxLocation.state,
+        lga: taxLocation.lga || null,
+        description: `${taxLocation.state} State ${taxType} Tax`
       }
     });
 
     await taxPayment.save();
 
-    // If paying from wallet
     if (paymentMethod === 'wallet') {
-      // Deduct from balance
       user.balance -= amount;
-      
-      // Add to transaction history
+
       await user.addTransaction({
         amount,
         type: 'tax payment',
@@ -75,10 +160,12 @@ exports.initiateTaxPayment = async (req, res) => {
         description: `${taxType} tax payment`
       });
 
-      // Update tax payment status
       taxPayment.status = 'completed';
       taxPayment.paidDate = new Date();
       await taxPayment.save();
+
+      // ✅ Auto-create subscription
+      await createAutoSubscription(user._id, taxType, amount, paymentPlan, taxPayment.taxPaymentId);
 
       return res.json({
         success: true,
@@ -92,10 +179,9 @@ exports.initiateTaxPayment = async (req, res) => {
       });
     }
 
-    // If paying via Paystack
     const paymentData = {
       email: user.email,
-      amount: amount * 100, // Convert to kobo
+      amount: amount * 100,
       reference: taxPayment.reference,
       callback_url: `${process.env.FRONTEND_URL}/tax/verify`,
       metadata: {
@@ -103,7 +189,8 @@ exports.initiateTaxPayment = async (req, res) => {
         username: user.username,
         type: 'tax payment',
         taxType,
-        taxPaymentId: taxPayment.taxPaymentId
+        taxPaymentId: taxPayment.taxPaymentId,
+        paymentPlan
       }
     };
 
@@ -152,7 +239,6 @@ exports.verifyTaxPayment = async (req, res) => {
       });
     }
 
-    // If already completed
     if (taxPayment.status === 'completed') {
       return res.json({
         success: true,
@@ -161,7 +247,6 @@ exports.verifyTaxPayment = async (req, res) => {
       });
     }
 
-    // Verify with Paystack
     const verification = await paystackService.verifyTransaction(reference);
 
     if (!verification.status || verification.data.status !== 'success') {
@@ -174,12 +259,10 @@ exports.verifyTaxPayment = async (req, res) => {
       });
     }
 
-    // Update tax payment
     taxPayment.status = 'completed';
     taxPayment.paidDate = new Date();
     await taxPayment.save();
 
-    // Add to user transaction history
     const user = await User.findById(taxPayment.userId);
     await user.addTransaction({
       amount: taxPayment.amount,
@@ -188,6 +271,15 @@ exports.verifyTaxPayment = async (req, res) => {
       reference: taxPayment.reference,
       description: `${taxPayment.taxType} tax payment`
     });
+
+    // ✅ Auto-create subscription after Paystack verification
+    await createAutoSubscription(
+      taxPayment.userId,
+      taxPayment.taxType,
+      taxPayment.amount,
+      taxPayment.paymentPlan,
+      taxPayment.taxPaymentId
+    );
 
     res.json({
       success: true,
@@ -203,6 +295,7 @@ exports.verifyTaxPayment = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Get user tax payments
 // @route   GET /api/tax/payments
@@ -227,6 +320,8 @@ exports.getTaxPayments = async (req, res) => {
   }
 };
 
+
+
 // @desc    Get single tax payment
 // @route   GET /api/tax/payment/:id
 // @access  Private
@@ -243,6 +338,7 @@ exports.getTaxPayment = async (req, res) => {
         message: 'Tax payment not found'
       });
     }
+
 
     res.json({
       success: true,
@@ -284,7 +380,7 @@ exports.createSubscription = async (req, res) => {
     const startDate = new Date();
     let expiryDate = new Date();
 
-    switch(frequency) {
+    switch (frequency) {
       case 'Monthly':
         expiryDate.setMonth(expiryDate.getMonth() + 1);
         break;
@@ -401,39 +497,70 @@ exports.updateSubscription = async (req, res) => {
 exports.getDashboardStats = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-    
+
     // Get spending statistics
-    const taxPayments = await TaxPayment.find({ 
+    const taxPayments = await TaxPayment.find({
       userId: req.userId,
       status: 'completed'
     });
 
-    // Calculate statistics by payment method/type
-    const stats = {
-      sticker: { total: 0, percentage: 0 },
-      card: { total: 0, percentage: 0 },
-      other: { total: 0, percentage: 0 }
-    };
+    // // Calculate statistics by payment method/type
+    // const stats = {
+    //   Transportation: { total: 0, percentage: 0 },
+    //   Income: { total: 0, percentage: 0 },
+    //   Property: { total: 0, percentage: 0 },
+    //   Business: { total: 0, percentage: 0 },
+    //   Vehicle: { total: 0, percentage: 0 }
+    // };
 
     const totalSpent = taxPayments.reduce((sum, payment) => sum + payment.amount, 0);
 
-    // Calculate by vehicle info type (simplified example)
+    // // Calculate by vehicle info type (simplified example)
+    // // taxPayments.forEach(payment => {
+    // //   if (payment.metadata?.vehicleInfo?.stickerId) {
+    // //     stats.sticker.total += payment.amount;
+    // //   } else if (payment.metadata?.vehicleInfo?.cardId) {
+    // //     stats.card.total += payment.amount;
+    // //   } else {
+    // //     stats.other.total += payment.amount;
+    // //   }
+    // // });
+    // taxPayments.forEach(payment => {
+    //   if (payment.taxType?.Transportation) {
+    //     stats.Transportation.total += payment.amount;
+    //   } else if (payment.taxType?.Property) {
+    //     stats.Property.total += payment.amount;
+    //   } else {
+    //     stats.other.total += payment.amount;
+    //   }
+    // });
+
+
+    // // Calculate percentages
+    // if (totalSpent > 0) {
+    //   stats.sticker.percentage = Math.round((stats.sticker.total / totalSpent) * 100);
+    //   stats.card.percentage = Math.round((stats.card.total / totalSpent) * 100);
+    //   stats.other.percentage = Math.round((stats.other.total / totalSpent) * 100);
+    // }
+
+    const stats = {
+      transportation: { total: 0, percentage: 0, label: 'Transportation' },
+      property: { total: 0, percentage: 0, label: 'Property' },
+      business: { total: 0, percentage: 0, label: 'Business' },
+      income: { total: 0, percentage: 0, label: 'Income' },
+      vehicle: { total: 0, percentage: 0, label: 'Vehicle' },
+      others: { total: 0, percentage: 0, label: 'Other' }
+    };
+
     taxPayments.forEach(payment => {
-      if (payment.metadata?.vehicleInfo?.stickerId) {
-        stats.sticker.total += payment.amount;
-      } else if (payment.metadata?.vehicleInfo?.cardId) {
-        stats.card.total += payment.amount;
+      const type = payment.taxType.toLowerCase();
+      if (stats[type]) {
+        stats[type].total += payment.amount;
+        stats[type].percentage = Math.round((stats[type].total / totalSpent) * 100);
       } else {
-        stats.other.total += payment.amount;
+        stats.others.total += payment.amount;
       }
     });
-
-    // Calculate percentages
-    if (totalSpent > 0) {
-      stats.sticker.percentage = Math.round((stats.sticker.total / totalSpent) * 100);
-      stats.card.percentage = Math.round((stats.card.total / totalSpent) * 100);
-      stats.other.percentage = Math.round((stats.other.total / totalSpent) * 100);
-    }
 
     // Get active subscriptions
     const activeSubscriptions = await TaxSubscription.find({
@@ -497,7 +624,7 @@ exports.renewSubscription = async (req, res) => {
 
     if (paymentMethod === 'wallet') {
       const user = await User.findById(req.userId);
-      
+
       if (user.balance < subscription.amount) {
         return res.status(400).json({
           success: false,
@@ -507,7 +634,7 @@ exports.renewSubscription = async (req, res) => {
 
       // Deduct from balance
       user.balance -= subscription.amount;
-      
+
       // Add transaction
       await user.addTransaction({
         amount: subscription.amount,
@@ -521,7 +648,7 @@ exports.renewSubscription = async (req, res) => {
       subscription.expiryDate = newExpiryDate;
       subscription.lastPaymentDate = new Date();
       subscription.calculateNextPayment();
-      
+
       await subscription.save();
       await user.save();
 
@@ -543,5 +670,82 @@ exports.renewSubscription = async (req, res) => {
       message: 'Server error',
       error: error.message
     });
+  }
+};
+
+// GET /api/admin/tax/revenue-by-state
+exports.getTaxRevenueByState = async (req, res) => {
+  try {
+    const { startDate, endDate, taxType } = req.query;
+
+    const pipeline = [
+      {
+        $match: {
+          status: 'completed',
+          createdAt: {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate)
+          },
+          ...(taxType && { taxType })
+        }
+      },
+      {
+        $group: {
+          _id: '$taxLocation.state',
+          totalRevenue: { $sum: '$amount' },
+          paymentCount: { $sum: 1 },
+          averagePayment: { $avg: '$amount' }
+        }
+      },
+      {
+        $sort: { totalRevenue: -1 }
+      }
+    ];
+
+    const stateRevenue = await TaxPayment.aggregate(pipeline);
+
+    res.json({
+      success: true,
+      data: stateRevenue
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/tax/payments-by-location
+exports.getTaxPaymentsByLocation = async (req, res) => {
+  try {
+    const { state, lga, taxType, page = 1, limit = 20 } = req.query;
+
+    const filter = {
+      status: 'completed',
+      ...(state && { 'taxLocation.state': state }),
+      ...(lga && { 'taxLocation.lga': lga }),
+      ...(taxType && { taxType })
+    };
+
+    const payments = await TaxPayment.find(filter)
+      .populate('userId', 'username email taxId')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await TaxPayment.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        payments,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

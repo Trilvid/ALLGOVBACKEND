@@ -55,6 +55,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/tax', require('./routes/taxRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/admin', require('./routes/Adminrevenueroutes'));
 
 // Additional route for frontend compatibility
 const authController = require('./controllers/authController');

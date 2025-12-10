@@ -847,6 +847,7 @@ exports.getPaymentDetails = async (req, res) => {
 exports.updatePaymentStatus = async (req, res) => {
   try {
     const { status, note } = req.body;
+    console.log(status, note)
 
     if (!['completed', 'pending', 'failed', 'refunded'].includes(status)) {
       return res.status(400).json({

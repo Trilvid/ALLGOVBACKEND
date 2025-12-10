@@ -9,8 +9,7 @@ const taxPaymentSchema = new mongoose.Schema({
   },
   taxType: {
     type: String,
-    enum: ['Transportation', 'Property', 'Business', 'Income', 'Vehicle', 'Other','transportation', 'property', 'business', 'income', 'vehicle', 'other'],
-
+    enum: ['Transportation', 'Property', 'Business', 'Income', 'Vehicle', 'Other', 'transportation', 'property', 'business', 'income', 'vehicle', 'other'],
     required: true
   },
   paymentPlan: {
@@ -32,6 +31,19 @@ const taxPaymentSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // ✅ NEW: Tax Payment Location for state/LGA tracking
+  taxLocation: {
+    country: {
+      type: String,
+      default: 'Nigeria'
+    },
+    state: {
+      type: String,
+      required: true
+    },
+    lga: String,
+    description: String
+  },
   taxPaymentId: {
     type: String,
     unique: true,
@@ -51,17 +63,40 @@ const taxPaymentSchema = new mongoose.Schema({
   dueDate: Date,
   paidDate: Date,
   description: String,
+  // ✅ FIXED METADATA SCHEMA
   metadata: {
+    // ✅ FIX: Properly define vehicleInfo as optional nested object
     vehicleInfo: {
-      plateNumber: String,
-      chassisNumber: String,
-      vehicleType: String,
-      vehicleCategory: String,
-      vehicleBrand: String,
-      vehicleModel: String,
-      stickerId: String,
-      cardId: String
-    }
+      type: {
+        plateNumber: String,
+        chassisNumber: String,
+        vehicleType: String,
+        vehicleCategory: String,
+        vehicleBrand: String,
+        vehicleModel: String,
+        stickerId: String,
+        cardId: String
+      },
+      required: false,
+      default: undefined
+    },
+    // Admin fields for payment management
+    adminNote: String,
+    statusUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    statusUpdatedAt: Date,
+    previousStatus: String,
+    // Refund fields
+    refunded: {
+      type: Boolean,
+      default: false
+    },
+    refundAmount: Number,
+    refundReason: String,
+    refundedAt: Date,
+    receiptNumber: String
   }
 }, {
   timestamps: true
@@ -80,7 +115,7 @@ const taxSubscriptionSchema = new mongoose.Schema({
   },
   taxType: {
     type: String,
-    enum: ['Transportation', 'Property', 'Business', 'Income', 'Vehicle', 'Other','transportation', 'property', 'business', 'income', 'vehicle', 'other'],
+    enum: ['Transportation', 'Property', 'Business', 'Income', 'Vehicle', 'Other', 'transportation', 'property', 'business', 'income', 'vehicle', 'other'],
     required: true
   },
   amount: {
@@ -108,7 +143,7 @@ const taxSubscriptionSchema = new mongoose.Schema({
   nextPaymentDate: Date,
   autoRenew: {
     type: Boolean,
-    default: false
+    default: true
   },
   lastPaymentDate: Date,
   totalPaid: {
@@ -126,7 +161,7 @@ const taxSubscriptionSchema = new mongoose.Schema({
 });
 
 // Generate Tax Payment ID
-taxPaymentSchema.pre('save', function(next) {
+taxPaymentSchema.pre('save', function (next) {
   if (!this.taxPaymentId) {
     const timestamp = Date.now().toString().slice(-8);
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -136,26 +171,29 @@ taxPaymentSchema.pre('save', function(next) {
 });
 
 // Check if subscription is expired
-taxSubscriptionSchema.methods.isExpired = function() {
+taxSubscriptionSchema.methods.isExpired = function () {
   return new Date() > this.expiryDate;
 };
 
 // Calculate next payment date
-taxSubscriptionSchema.methods.calculateNextPayment = function() {
+taxSubscriptionSchema.methods.calculateNextPayment = function () {
   const current = this.nextPaymentDate || new Date();
-  
-  switch(this.frequency) {
+
+  switch (this.frequency) {
     case 'Monthly':
+    case 'monthly':
       this.nextPaymentDate = new Date(current.setMonth(current.getMonth() + 1));
       break;
     case 'Quarterly':
+    case 'quarterly':
       this.nextPaymentDate = new Date(current.setMonth(current.getMonth() + 3));
       break;
     case 'Annually':
+    case 'annually':
       this.nextPaymentDate = new Date(current.setFullYear(current.getFullYear() + 1));
       break;
   }
-  
+
   return this.nextPaymentDate;
 };
 

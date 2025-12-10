@@ -69,8 +69,12 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     trim: true,
-    enum: ['user', 'admin', 'superadmin'],
+    enum: ['user', 'admin', 'superadmin', 'state-admin'],
     default: 'user'
+  },
+  assignedState: {
+    type: String,
+    default: null,
   },
   dateOfBirth: {
     type: Date
@@ -206,9 +210,9 @@ const userSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -219,12 +223,12 @@ userSchema.pre('save', async function(next) {
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Generate tax ID
-userSchema.methods.generateTaxId = function() {
+userSchema.methods.generateTaxId = function () {
   const timestamp = Date.now().toString().slice(-6);
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
   this.taxId = `tax${random}${timestamp}`;
@@ -233,13 +237,13 @@ userSchema.methods.generateTaxId = function() {
 };
 
 // Add transaction method
-userSchema.methods.addTransaction = function(transactionData) {
+userSchema.methods.addTransaction = function (transactionData) {
   this.transaction.push(transactionData);
   return this.save();
 };
 
 // Update balance method
-userSchema.methods.updateBalance = function(amount, type) {
+userSchema.methods.updateBalance = function (amount, type) {
   if (type === 'deposit') {
     this.balance += amount;
   } else if (type === 'withdrawal' || type === 'tax payment') {

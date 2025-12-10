@@ -21,9 +21,9 @@ exports.register = async (req, res) => {
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        success: false, 
-        errors: errors.array() 
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
       });
     }
 
@@ -32,9 +32,9 @@ exports.register = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User already exists with this email' 
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
       });
     }
 
@@ -75,10 +75,10 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error during registration',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -131,9 +131,9 @@ exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        success: false, 
-        errors: errors.array() 
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
       });
     }
 
@@ -143,34 +143,34 @@ exports.login = async (req, res) => {
     // const user = await User.findOne({ taxId });
     const user = await User.findOne({ $or: [{ taxId }, { email: taxId }] });
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
       });
     }
 
     // Check account status
     if (user.accountStatus === 'suspended') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Account is suspended. Please contact support.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Account is suspended. Please contact support.'
       });
     }
-    
+
     // Check account status
     if (user.emailVerified === false) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Email not verified, please verify your email to continue. \n Check your inbox or spam folder' 
+      return res.status(403).json({
+        success: false,
+        message: 'Email not verified, please verify your email to continue. \n Check your inbox or spam folder'
       });
     }
 
     // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid credentials' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
       });
     }
 
@@ -196,14 +196,14 @@ exports.login = async (req, res) => {
         profileImage: user.profileImage,
       }
     });
-    
+
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error during login',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -281,11 +281,11 @@ exports.resetPassword = async (req, res) => {
 
     await user.save();
 
-    res.json({ status: 200,message: "Password updated successfully" });
+    res.json({ status: 200, message: "Password updated successfully" });
 
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: err.message});
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -296,11 +296,11 @@ exports.resetPassword = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password');
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
@@ -330,10 +330,10 @@ exports.getMe = async (req, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -346,20 +346,20 @@ exports.changePassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide both current and new password' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both current and new password'
       });
     }
 
     const user = await User.findById(req.userId);
-    
+
     // Verify current password
     const isPasswordValid = await user.comparePassword(currentPassword);
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Current password is incorrect' 
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
       });
     }
 
@@ -373,10 +373,10 @@ exports.changePassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -391,10 +391,10 @@ exports.logout = async (req, res) => {
       message: 'Logged out successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error',
-      error: error.message 
+      error: error.message
     });
   }
 };

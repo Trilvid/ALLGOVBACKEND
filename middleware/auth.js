@@ -23,10 +23,10 @@ exports.protect = async (req, res, next) => {
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
+
       // Check if user still exists
       const user = await User.findById(decoded.userId).select('-password');
-      
+
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -45,7 +45,7 @@ exports.protect = async (req, res, next) => {
       // Attach user to request
       req.userId = decoded.userId;
       req.user = user;
-      
+
       next();
     } catch (error) {
       return res.status(401).json({
@@ -125,3 +125,16 @@ exports.apiLimiter = rateLimit({
     message: 'Too many requests, please try again later'
   }
 });
+
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    // roles is an array: ['superadmin', 'admin', 'state-admin']
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions.'
+      });
+    }
+    next();
+  };
+};

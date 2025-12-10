@@ -220,9 +220,9 @@ const generateTransactions = (count) => {
       type: type,
       status: status,
       reference: `REF-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
-      description: type === 'deposit' ? 'Wallet funding via Paystack' : 
-                   type === 'tax payment' ? 'Transportation tax payment' : 
-                   'Withdrawal request',
+      description: type === 'deposit' ? 'Wallet funding via Paystack' :
+        type === 'tax payment' ? 'Transportation tax payment' :
+          'Withdrawal request',
       date: date.toLocaleDateString('en-GB'),
       timestamp: date
     });
@@ -246,13 +246,13 @@ const importData = async () => {
 
     for (const userData of users) {
       const user = new User(userData);
-      
+
       // Generate tax ID
       user.generateTaxId();
-      
+
       // Add transactions
       user.transaction = generateTransactions(15);
-      
+
       await user.save();
       createdUsers.push(user);
       console.log(`✅ Created user: ${user.username}`);
@@ -262,7 +262,7 @@ const importData = async () => {
     for (const user of createdUsers) {
       // Create 3-5 tax payments per user
       const paymentCount = Math.floor(Math.random() * 3) + 3;
-      
+
       for (let i = 0; i < paymentCount; i++) {
         const taxTypes = ['Transportation', 'Property', 'Business', 'Vehicle'];
         const taxType = taxTypes[Math.floor(Math.random() * taxTypes.length)];
@@ -293,19 +293,19 @@ const importData = async () => {
     for (const user of createdUsers) {
       // Create 2-4 subscriptions per user
       const subCount = Math.floor(Math.random() * 3) + 2;
-      
+
       for (let i = 0; i < subCount; i++) {
         const frequencies = ['monthly', 'quarterly', 'annually'];
         const taxTypes = ['transportation', 'property', 'business', 'vehicle'];
         const frequency = frequencies[Math.floor(Math.random() * frequencies.length)];
         const taxType = taxTypes[Math.floor(Math.random() * taxTypes.length)];
         const amount = Math.floor(Math.random() * 10000) + 2000;
-        
+
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 30));
-        
+
         const expiryDate = new Date(startDate);
-        switch(frequency) {
+        switch (frequency) {
           case 'monthly':
             expiryDate.setMonth(expiryDate.getMonth() + 1);
             break;
@@ -380,9 +380,9 @@ const importData = async () => {
         {
           userId: user._id,
           title: 'KYC Verification',
-          message: user.kyc.status === 'verified' ? 
-                   'Your KYC verification was successful!' : 
-                   'Please complete your KYC verification',
+          message: user.kyc.status === 'verified' ?
+            'Your KYC verification was successful!' :
+            'Please complete your KYC verification',
           type: user.kyc.status === 'verified' ? 'success' : 'warning',
           category: 'kyc',
           read: user.kyc.status === 'verified'
@@ -404,7 +404,7 @@ const importData = async () => {
     console.log(`     • Complete profile data`);
     console.log(`     • Vehicle information`);
     console.log(`     • KYC verification`);
-    
+
     console.log('\n🔑 Test Login Credentials:');
     console.log('   Email: promise@example.com');
     console.log('   Password: password123');
@@ -414,7 +414,7 @@ const importData = async () => {
     console.log('   - ahmed@example.com');
     console.log('   - chioma@example.com');
     console.log('   (All use password: password123)');
-    
+
     process.exit();
   } catch (error) {
     console.error('❌ Error importing data:', error);
