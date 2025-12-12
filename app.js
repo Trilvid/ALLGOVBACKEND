@@ -62,6 +62,11 @@ const authController = require('./controllers/authController');
 const { protect } = require('./middleware/auth');
 app.get('/api/users/getData', protect, authController.getMe);
 
+
+
+const taxVerifyRoutes = require('./routes/scanTaxRoute');
+app.use('/api/verify', taxVerifyRoutes);
+
 // Welcome route
 app.get('/', (req, res) => {
   res.json({
