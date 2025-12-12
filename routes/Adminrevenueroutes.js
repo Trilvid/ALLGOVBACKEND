@@ -11,7 +11,7 @@ const {
     convertToStateAdmin,
     removeStateAdmin,
     getAvailableStates
-} = require('../controllers/adminRevenueController');
+} = require('../controllers/Adminrevenuecontroller');
 const { protect, restrictTo } = require('../middleware/auth');
 
 // ============================================
