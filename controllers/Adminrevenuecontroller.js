@@ -86,6 +86,8 @@ exports.getStateDetails = async (req, res) => {
         const { stateName } = req.params;
         const { startDate, endDate } = req.query;
 
+        console.log(stateName, startDate, endDate, "hello world")
+
         // Check if user is state-admin and accessing their assigned state
         if (req.user.role === 'state-admin' && req.user.assignedState !== stateName) {
             return res.status(403).json({
@@ -230,7 +232,7 @@ exports.getStateDetails = async (req, res) => {
 // @access  Private (superadmin or state-admin)
 exports.getPaymentsByLocation = async (req, res) => {
     try {
-        const { state, lga, taxType, status, page = 1, limit = 20 } = req.query;
+        const { state, lga, taxType, status, page = 1, limit = 10 } = req.query;
 
         // Build filter
         const filter = {};
@@ -565,6 +567,120 @@ exports.getAvailableStates = async (req, res) => {
         });
     } catch (error) {
         console.error('Get available states error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+};
+
+
+
+// ✅ ADD THIS ENDPOINT TO YOUR adminRevenueController.js
+
+// @desc    Convert existing user to state admin
+// @route   POST /api/admin/state-admins
+// @access  Private (superadmin only)
+exports.convertToStateAdmin = async (req, res) => {
+    try {
+        const { userId, assignedState } = req.body;
+
+        // Validation
+        if (!userId || !assignedState) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide userId and assigned state'
+            });
+        }
+
+        // Find user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check if user is already admin or superadmin
+        if (user.role === 'admin' || user.role === 'superadmin') {
+            return res.status(400).json({
+                success: false,
+                message: 'This user already has admin privileges'
+            });
+        }
+
+        // Check if state already has an admin
+        const existingStateAdmin = await User.findOne({
+            role: 'state-admin',
+            assignedState,
+            accountStatus: 'active',
+            _id: { $ne: userId }
+        });
+
+        if (existingStateAdmin) {
+            return res.status(400).json({
+                success: false,
+                message: `${assignedState} already has an active admin: ${existingStateAdmin.email}`
+            });
+        }
+
+        // Update user to state admin
+        user.role = 'state-admin';
+        user.assignedState = assignedState;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: `${user.firstName} ${user.lastName} is now ${assignedState} State Admin`,
+            data: {
+                _id: user._id,
+                name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+                email: user.email,
+                role: user.role,
+                assignedState: user.assignedState
+            }
+        });
+    } catch (error) {
+        console.error('Convert to state admin error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+};
+
+// @desc    Remove state admin role (convert back to user)
+// @route   DELETE /api/admin/state-admins/:id
+// @access  Private (superadmin only)
+exports.removeStateAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const stateAdmin = await User.findOne({ _id: id, role: 'state-admin' });
+
+        if (!stateAdmin) {
+            return res.status(404).json({
+                success: false,
+                message: 'State admin not found'
+            });
+        }
+
+        const stateName = stateAdmin.assignedState;
+
+        // Convert back to regular user
+        stateAdmin.role = 'user';
+        stateAdmin.assignedState = null;
+        await stateAdmin.save();
+
+        res.json({
+            success: true,
+            message: `State admin role removed. ${stateName} is now available for assignment.`
+        });
+    } catch (error) {
+        console.error('Remove state admin error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error',

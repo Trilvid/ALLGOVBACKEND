@@ -74,6 +74,7 @@ exports.admin = (req, res, next) => {
   }
 
   if (req.user.role !== 'admin') {
+    // if (req.user.role !== 'admin' || req.user.role === 'superadmin' || req.user.role === 'state-admin') {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Admin privileges required.'

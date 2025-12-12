@@ -716,7 +716,7 @@ exports.getTaxRevenueByState = async (req, res) => {
 // GET /api/admin/tax/payments-by-location
 exports.getTaxPaymentsByLocation = async (req, res) => {
   try {
-    const { state, lga, taxType, page = 1, limit = 20 } = req.query;
+    const { state, lga, taxType, page = 1, limit = 10 } = req.query;
 
     const filter = {
       status: 'completed',

@@ -124,7 +124,7 @@
 //     </div>
 //   </div>
 //   `;
-  
+
 //     return await this.sendEmail({
 //       email,
 //       subject: 'Verify Your Email Address',
@@ -132,7 +132,7 @@
 //     });
 // }
 
-  
+
 
 //   // Payment receipt email
 //   async sendPaymentReceipt(user, payment) {
@@ -370,7 +370,7 @@ class EmailService {
         html: options.html,
       });
 
-      console.log("Email sent:", data.id);
+      console.log("Email sent:", data.data.id);
       return { success: true, id: data.id };
     } catch (error) {
       console.error("Email error:", error);
@@ -437,7 +437,7 @@ class EmailService {
   // -----------------------------
   // PAYMENT RECEIPT EMAIL
   // -----------------------------
-  
+
   async sendPaymentReceipt(user, payment) {
     const html = `
       <div style="font-family: Arial; padding: 20px;">

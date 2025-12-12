@@ -5,7 +5,7 @@ const Notification = require('../models/Notification');
 // @access  Private
 exports.getNotifications = async (req, res) => {
   try {
-    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    const { page = 1, limit = 10, unreadOnly = false } = req.query;
 
     const query = { userId: req.userId };
     if (unreadOnly === 'true') {
@@ -18,9 +18,9 @@ exports.getNotifications = async (req, res) => {
       .skip((page - 1) * limit);
 
     const count = await Notification.countDocuments(query);
-    const unreadCount = await Notification.countDocuments({ 
-      userId: req.userId, 
-      read: false 
+    const unreadCount = await Notification.countDocuments({
+      userId: req.userId,
+      read: false
     });
 
     res.json({

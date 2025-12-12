@@ -14,7 +14,7 @@ exports.getDashboardStats = async (req, res) => {
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ accountStatus: 'active' });
     const suspendedUsers = await User.countDocuments({ accountStatus: 'suspended' });
-    
+
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const newUsersThisMonth = await User.countDocuments({
       createdAt: { $gte: startOfMonth }
@@ -26,7 +26,7 @@ exports.getDashboardStats = async (req, res) => {
 
     const allPayments = await TaxPayment.find({ status: 'completed' });
     const totalRevenue = allPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    
+
     const paymentsThisMonth = await TaxPayment.find({
       status: 'completed',
       paidDate: { $gte: startOfMonth }
@@ -52,7 +52,7 @@ exports.getDashboardStats = async (req, res) => {
     const usersLastMonth = await User.countDocuments({
       createdAt: { $gte: lastMonth, $lt: startOfMonth }
     });
-    const userGrowth = usersLastMonth > 0 
+    const userGrowth = usersLastMonth > 0
       ? Math.round(((newUsersThisMonth - usersLastMonth) / usersLastMonth) * 100)
       : newUsersThisMonth > 0 ? 100 : 0;
 
@@ -63,13 +63,13 @@ exports.getDashboardStats = async (req, res) => {
       paidDate: { $gte: lastMonthStart, $lt: lastMonthEnd }
     });
     const revenueLastMonth = paymentsLastMonth.reduce((sum, payment) => sum + payment.amount, 0);
-    const revenueGrowth = revenueLastMonth > 0 
+    const revenueGrowth = revenueLastMonth > 0
       ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100)
       : revenueThisMonth > 0 ? 100 : 0;
 
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
+
     const monthlyRevenue = await TaxPayment.aggregate([
       {
         $match: {
@@ -161,7 +161,7 @@ exports.getRecentUsers = async (req, res) => {
     const { page = 1, limit = 10, search = '' } = req.query;
 
     const query = {};
-    
+
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
@@ -206,9 +206,9 @@ exports.getRecentUsers = async (req, res) => {
 // @access  Private/Admin
 exports.getRecentPayments = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
+    const {
+      page = 1,
+      limit = 10,
       status = 'all',
       taxType = 'all',
       search = ''
@@ -238,11 +238,11 @@ exports.getRecentPayments = async (req, res) => {
         const userEmail = (payment.userId?.email || '').toLowerCase();
         const taxId = (payment.userId?.taxId || '').toLowerCase();
         const paymentRef = (payment.paymentReference || '').toLowerCase();
-        
-        return userName.includes(searchLower) || 
-               userEmail.includes(searchLower) || 
-               taxId.includes(searchLower) ||
-               paymentRef.includes(searchLower);
+
+        return userName.includes(searchLower) ||
+          userEmail.includes(searchLower) ||
+          taxId.includes(searchLower) ||
+          paymentRef.includes(searchLower);
       });
     }
 
@@ -278,73 +278,173 @@ exports.getRecentPayments = async (req, res) => {
 // USER MANAGEMENT
 // ============================================
 
-// @desc    Get all users with filtering and pagination
-// @route   GET /api/admin/users
-// @access  Private/Admin
+// // @desc    Get all users with filtering and pagination
+// // @route   GET /api/admin/users
+// // @access  Private/Admin
+// exports.getAllUsers = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 10,
+//       search = '',
+//       status = 'all',
+//       kycStatus = 'all',
+//       sortBy = 'createdAt',
+//       sortOrder = 'desc'
+//     } = req.query;
+
+//     // const query = {};
+//     let query = {
+//       role: { $in: ['user', 'state-admin'] }  // ✅ FILTER HERE
+//     };
+
+
+//     if (search) {
+//       query.$or = [
+//         { firstName: { $regex: search, $options: 'i' } },
+//         { lastName: { $regex: search, $options: 'i' } },
+//         { email: { $regex: search, $options: 'i' } },
+//         { taxId: { $regex: search, $options: 'i' } },
+//         { phone: { $regex: search, $options: 'i' } }
+//       ];
+//     }
+
+//     if (status !== 'all') {
+//       query.accountStatus = status;
+//     }
+
+//     if (kycStatus !== 'all') {
+//       query['kyc.status'] = kycStatus;
+//     }
+
+//     const users = await User.find(query)
+//       .select('-password -transactionPin')
+//       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+//       .limit(parseInt(limit))
+//       .skip((parseInt(page) - 1) * parseInt(limit));
+
+//     const total = await User.countDocuments(query);
+
+//     const statusCounts = {
+//       all: await User.countDocuments(),
+//       active: await User.countDocuments({ accountStatus: 'active' }),
+//       suspended: await User.countDocuments({ accountStatus: 'suspended' })
+//     };
+
+//     const kycCounts = {
+//       all: await User.countDocuments(),
+//       pending: await User.countDocuments({ 'kyc.status': 'pending' }),
+//       verified: await User.countDocuments({ 'kyc.status': 'verified' }),
+//       rejected: await User.countDocuments({ 'kyc.status': 'rejected' }),
+//       none: await User.countDocuments({ 'kyc.status': { $exists: false } })
+//     };
+
+//     res.json({
+//       success: true,
+//       data: users,
+//       pagination: {
+//         current: parseInt(page),
+//         pages: Math.ceil(total / parseInt(limit)),
+//         total,
+//         limit: parseInt(limit),
+//         hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
+//         hasPrev: parseInt(page) > 1
+//       },
+//       filters: {
+//         statusCounts,
+//         kycCounts
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get all users error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Server error',
+//       error: error.message
+//     });
+//   }
+// };
 exports.getAllUsers = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      search = '', 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
       status = 'all',
       kycStatus = 'all',
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
 
-    const query = {};
-    
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    let query = {
+      role: { $in: ['user', 'state-admin'] }
+    };
+
+    // Search filter
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
-        { taxId: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
+        { phone: { $regex: search, $options: 'i' } },
+        { taxId: { $regex: search, $options: 'i' } }
       ];
     }
 
+    // Status filter
     if (status !== 'all') {
       query.accountStatus = status;
     }
 
+    // KYC filter
     if (kycStatus !== 'all') {
       query['kyc.status'] = kycStatus;
     }
 
-    const users = await User.find(query)
-      .select('-password -transactionPin')
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
+    // Sort options
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
+    // Execute query
+    const users = await User.find(query)
+      .select('-password -resetPasswordToken -resetPasswordExpires')
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Get total count
     const total = await User.countDocuments(query);
 
+    // Get filter counts (only for visible roles)
+    const baseRoleFilter = { role: { $in: ['user', 'state-admin'] } };
+
     const statusCounts = {
-      all: await User.countDocuments(),
-      active: await User.countDocuments({ accountStatus: 'active' }),
-      suspended: await User.countDocuments({ accountStatus: 'suspended' })
+      all: await User.countDocuments(baseRoleFilter),
+      active: await User.countDocuments({ ...baseRoleFilter, accountStatus: 'active' }),
+      suspended: await User.countDocuments({ ...baseRoleFilter, accountStatus: 'suspended' })
     };
 
     const kycCounts = {
-      all: await User.countDocuments(),
-      pending: await User.countDocuments({ 'kyc.status': 'pending' }),
-      verified: await User.countDocuments({ 'kyc.status': 'verified' }),
-      rejected: await User.countDocuments({ 'kyc.status': 'rejected' }),
-      none: await User.countDocuments({ 'kyc.status': { $exists: false } })
+      all: await User.countDocuments(baseRoleFilter),
+      verified: await User.countDocuments({ ...baseRoleFilter, 'kyc.status': 'verified' }),
+      pending: await User.countDocuments({ ...baseRoleFilter, 'kyc.status': 'pending' }),
+      rejected: await User.countDocuments({ ...baseRoleFilter, 'kyc.status': 'rejected' })
     };
 
     res.json({
       success: true,
       data: users,
       pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
+        current: pageNum,
+        pages: Math.ceil(total / limitNum),
         total,
-        limit: parseInt(limit),
-        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
-        hasPrev: parseInt(page) > 1
+        hasNext: pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1
       },
       filters: {
         statusCounts,
@@ -367,7 +467,7 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserDetails = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password -transactionPin');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -441,7 +541,7 @@ exports.updateUserStatus = async (req, res) => {
     }
 
     user.accountStatus = accountStatus;
-    
+
     if (!user.statusHistory) {
       user.statusHistory = [];
     }
@@ -492,7 +592,7 @@ exports.updateUser = async (req, res) => {
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (phone) user.phone = phone;
-    
+
     if (role && req.user.role === 'admin') {
       if (user.role === 'admin' && role !== 'admin') {
         const adminCount = await User.countDocuments({ role: 'admin' });
@@ -529,7 +629,7 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -629,9 +729,9 @@ exports.exportUsers = async (req, res) => {
 // @access  Private/Admin
 exports.getAllKYC = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
+    const {
+      page = 1,
+      limit = 10,
       status = 'all',
       search = '',
       sortBy = 'kyc.submittedAt',
@@ -642,7 +742,7 @@ exports.getAllKYC = async (req, res) => {
     const query = {
       'kyc.status': { $exists: true }
     };
-    
+
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
@@ -704,7 +804,7 @@ exports.getKYCDetails = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId)
       .select('firstName lastName email phone taxId profileImage kyc createdAt address vehicleInfo');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -739,7 +839,7 @@ exports.getKYCDetails = async (req, res) => {
 exports.approveKYC = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -819,7 +919,7 @@ exports.rejectKYC = async (req, res) => {
     }
 
     const user = await User.findById(req.params.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -882,7 +982,7 @@ exports.rejectKYC = async (req, res) => {
 exports.resetKYC = async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,

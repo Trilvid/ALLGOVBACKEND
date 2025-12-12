@@ -313,6 +313,7 @@ exports.getMe = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       middleName: user.middleName,
+      assignedState: user.assignedState,
       phone: user.phone,
       dateOfBirth: user.dateOfBirth,
       address: user.address,

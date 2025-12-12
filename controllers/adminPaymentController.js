@@ -37,7 +37,7 @@
 //           { taxId: { $regex: search, $options: 'i' } }
 //         ]
 //       }).select('_id');
-      
+
 //       const userIds = users.map(u => u._id);
 
 //       query.$or = [
@@ -645,7 +645,7 @@ exports.getAllPayments = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 20,
+      limit = 10,
       search = '',
       status = '',
       taxType = '',
@@ -669,7 +669,7 @@ exports.getAllPayments = async (req, res) => {
           { taxId: { $regex: search, $options: 'i' } }
         ]
       }).select('_id');
-      
+
       const userIds = users.map(u => u._id);
 
       query.$or = [
@@ -964,7 +964,7 @@ exports.processRefund = async (req, res) => {
 
     // CRITICAL FIX: Get user and update BALANCE (not walletBalance)
     const user = await User.findById(payment.userId._id);
-    
+
     if (!user) {
       console.error('❌ User not found');
       return res.status(404).json({
@@ -1017,7 +1017,7 @@ exports.processRefund = async (req, res) => {
       previousBalance: oldBalance,
       newBalance: verifyUser.balance
     };
-    
+
     // Mark metadata as modified
     payment.markModified('metadata');
     await payment.save();
