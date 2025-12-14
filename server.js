@@ -23,7 +23,7 @@ connectDB();
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  
+
   // Initialize cron jobs
   if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
     CronJobs.initializeAll();
