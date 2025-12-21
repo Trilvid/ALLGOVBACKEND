@@ -17,7 +17,7 @@ const {
 const { protect, admin } = require('../middleware/auth');
 const { updateProfileValidation, validate } = require('../middleware/validation');
 const multer = require('multer');
-const { 
+const {
   getDashboardStats,
   getRecentUsers,
   getRecentPayments,
@@ -28,22 +28,26 @@ const {
   updateUser,
   deleteUser,
   exportUsers,
+  bulkUpdateUserStatus,
   // KYC Management
   getAllKYC,
   getKYCDetails,
   approveKYC,
   rejectKYC,
-  resetKYC } = require('../controllers/adminController');
+  resetKYC,
+  bulkApproveCompleteKYCs,
+  getCompleteKYCCount
+} = require('../controllers/adminController');
 
-  const { 
-    getAllPayments,
-    exportPayments,
-    getPaymentStats,
-    getTopPayingUsers,
-    getPaymentDetails,
-    updatePaymentStatus,
-    processRefund
-   } = require('./../controllers/adminPaymentController')
+const {
+  getAllPayments,
+  exportPayments,
+  getPaymentStats,
+  getTopPayingUsers,
+  getPaymentDetails,
+  updatePaymentStatus,
+  processRefund
+} = require('./../controllers/adminPaymentController')
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -96,6 +100,11 @@ router.get('/notifications', protect, getNotifications);
 // @route   DELETE /api/user/account
 router.delete('/account', protect, deleteAccount);
 
+
+// public use
+
+router.get('/checkpayment/:id', getPaymentDetails);
+
 // ============================================
 // ADMIN ROUTES                             
 // ============================================
@@ -142,11 +151,20 @@ router.put('/users/:id/status', protect, admin, updateUserStatus);
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete user
 router.delete('/users/:id', protect, admin, deleteUser);
+router.post('/users/bulk-status', protect, admin, bulkUpdateUserStatus);
 
 
 // ============================================
 // KYC MANAGEMENT ROUTES
 // ============================================
+
+// @route   GET /api/admin/kyc/bulk-approve/count
+// @desc    Get count of complete pending KYCs ready for bulk approval
+router.get('/kyc/bulk-approve/count', protect, admin, getCompleteKYCCount);
+
+// @route   POST /api/admin/kyc/bulk-approve
+// @desc    Bulk approve all complete pending KYCs
+router.post('/kyc/bulk-approve', protect, admin, bulkApproveCompleteKYCs);
 
 // @route   GET /api/admin/kyc
 // @desc    Get all KYC submissions with pagination and filters

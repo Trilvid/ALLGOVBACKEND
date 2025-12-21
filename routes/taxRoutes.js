@@ -9,7 +9,8 @@ const {
   getSubscriptions,
   updateSubscription,
   getDashboardStats,
-  renewSubscription
+  renewSubscription,
+  getPulicTaxHistory
 } = require('../controllers/taxController');
 const { protect } = require('../middleware/auth');
 const {
@@ -30,6 +31,11 @@ router.get('/payments', protect, getTaxPayments);
 
 // @route   GET /api/tax/payment/:id
 router.get('/payment/:id', protect, getTaxPayment);
+
+
+// Get all tax subscriptions for a specific user
+router.get('/subscriptions/user/:userId', getPulicTaxHistory);
+
 
 // Tax Subscription Routes
 // @route   POST /api/tax/subscription

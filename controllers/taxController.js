@@ -749,3 +749,42 @@ exports.getTaxPaymentsByLocation = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.getPulicTaxHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    console.log(`Fetching transaction history for user: ${userId}`);
+
+    // Find all subscriptions for this user
+    const subscriptions = await TaxSubscription.find({
+      userId: userId
+    })
+      .sort({ startDate: -1 }) // Most recent first
+      .lean();
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No transactions found for this user',
+        data: []
+      });
+    }
+
+    console.log(`Found ${subscriptions.length} transactions`);
+
+    res.json({
+      success: true,
+      message: `Found ${subscriptions.length} transactions`,
+      data: subscriptions
+    });
+
+  } catch (error) {
+    console.error('Error fetching transaction history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transaction history',
+      error: error.message
+    });
+  }
+}

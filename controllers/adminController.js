@@ -278,93 +278,7 @@ exports.getRecentPayments = async (req, res) => {
 // USER MANAGEMENT
 // ============================================
 
-// // @desc    Get all users with filtering and pagination
-// // @route   GET /api/admin/users
-// // @access  Private/Admin
-// exports.getAllUsers = async (req, res) => {
-//   try {
-//     const {
-//       page = 1,
-//       limit = 10,
-//       search = '',
-//       status = 'all',
-//       kycStatus = 'all',
-//       sortBy = 'createdAt',
-//       sortOrder = 'desc'
-//     } = req.query;
-
-//     // const query = {};
-//     let query = {
-//       role: { $in: ['user', 'state-admin'] }  // ✅ FILTER HERE
-//     };
-
-
-//     if (search) {
-//       query.$or = [
-//         { firstName: { $regex: search, $options: 'i' } },
-//         { lastName: { $regex: search, $options: 'i' } },
-//         { email: { $regex: search, $options: 'i' } },
-//         { taxId: { $regex: search, $options: 'i' } },
-//         { phone: { $regex: search, $options: 'i' } }
-//       ];
-//     }
-
-//     if (status !== 'all') {
-//       query.accountStatus = status;
-//     }
-
-//     if (kycStatus !== 'all') {
-//       query['kyc.status'] = kycStatus;
-//     }
-
-//     const users = await User.find(query)
-//       .select('-password -transactionPin')
-//       .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-//       .limit(parseInt(limit))
-//       .skip((parseInt(page) - 1) * parseInt(limit));
-
-//     const total = await User.countDocuments(query);
-
-//     const statusCounts = {
-//       all: await User.countDocuments(),
-//       active: await User.countDocuments({ accountStatus: 'active' }),
-//       suspended: await User.countDocuments({ accountStatus: 'suspended' })
-//     };
-
-//     const kycCounts = {
-//       all: await User.countDocuments(),
-//       pending: await User.countDocuments({ 'kyc.status': 'pending' }),
-//       verified: await User.countDocuments({ 'kyc.status': 'verified' }),
-//       rejected: await User.countDocuments({ 'kyc.status': 'rejected' }),
-//       none: await User.countDocuments({ 'kyc.status': { $exists: false } })
-//     };
-
-//     res.json({
-//       success: true,
-//       data: users,
-//       pagination: {
-//         current: parseInt(page),
-//         pages: Math.ceil(total / parseInt(limit)),
-//         total,
-//         limit: parseInt(limit),
-//         hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
-//         hasPrev: parseInt(page) > 1
-//       },
-//       filters: {
-//         statusCounts,
-//         kycCounts
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Get all users error:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Server error',
-//       error: error.message
-//     });
-//   }
-// };
-exports.getAllUsers = async (req, res) => {
+exports.oldgetAllUsers = async (req, res) => {
   try {
     const {
       page = 1,
@@ -460,6 +374,133 @@ exports.getAllUsers = async (req, res) => {
     });
   }
 };
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status = 'all',
+      kycStatus = 'all',
+      role = 'all',
+      search = '',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      startDate,
+      endDate
+    } = req.query;
+
+    // Build query - ✅ ONLY show regular and state-admin users
+    const query = {
+      role: { $in: ['user', 'state-admin'] } // ✅ Exclude super-admin
+    };
+
+    // Status filter
+    if (status !== 'all') {
+      query.accountStatus = status;
+    }
+
+    // KYC filter
+    if (kycStatus !== 'all') {
+      if (kycStatus === 'none') {
+        query['kyc.status'] = { $exists: false };
+      } else {
+        query['kyc.status'] = kycStatus;
+      }
+    }
+
+    // Role filter
+    if (role !== 'all') {
+      query.role = role;
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+      query.createdAt = {};
+
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    // Search filter
+    if (search) {
+      query.$or = [
+        { firstName: new RegExp(search, 'i') },
+        { lastName: new RegExp(search, 'i') },
+        { email: new RegExp(search, 'i') },
+        { taxId: new RegExp(search, 'i') },
+        { phone: new RegExp(search, 'i') }
+      ];
+    }
+
+    // Get users
+    const users = await User.find(query)
+      .select('-password -transactionPin')
+      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await User.countDocuments(query);
+
+    // ✅ FIXED: Get filter counts - Only count regular and state-admin users
+    const baseQuery = { role: { $in: ['user', 'state-admin'] } };
+
+    const statusCounts = {
+      all: await User.countDocuments(baseQuery),
+      active: await User.countDocuments({ ...baseQuery, accountStatus: 'active' }),
+      suspended: await User.countDocuments({ ...baseQuery, accountStatus: 'suspended' })
+    };
+
+    const kycCounts = {
+      all: await User.countDocuments(baseQuery),
+      pending: await User.countDocuments({ ...baseQuery, 'kyc.status': 'pending' }),
+      verified: await User.countDocuments({ ...baseQuery, 'kyc.status': 'verified' }),
+      rejected: await User.countDocuments({ ...baseQuery, 'kyc.status': 'rejected' }),
+      none: await User.countDocuments({ ...baseQuery, 'kyc.status': { $exists: false } })
+    };
+
+    const roleCounts = {
+      all: await User.countDocuments(baseQuery),
+      regular: await User.countDocuments({ role: 'user' }),
+      'state-admin': await User.countDocuments({ role: 'state-admin' })
+    };
+
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        total,
+        limit: parseInt(limit),
+        hasNext: parseInt(page) < Math.ceil(total / parseInt(limit)),
+        hasPrev: parseInt(page) > 1
+      },
+      filters: {
+        statusCounts,
+        kycCounts,
+        roleCounts
+      }
+    });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 
 // @desc    Get single user details
 // @route   GET /api/admin/users/:id
@@ -976,6 +1017,141 @@ exports.rejectKYC = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Bulk approve complete KYCs
+ * @route   POST /api/admin/kyc/bulk-approve
+ * @access  Private/Admin
+ */
+exports.bulkApproveCompleteKYCs = async (req, res) => {
+  try {
+    // Find all pending KYCs with complete information
+    const usersWithCompleteKYC = await User.find({
+      'kyc.status': 'pending',
+      'kyc.personalInfo.phone': { $exists: true, $ne: '' },
+      'kyc.taxVehicleInfo.plateNumber': { $exists: true, $ne: '' },
+      'kyc.identityVerification.nin': { $exists: true, $ne: '' },
+      'kyc.identityVerification.bvn': { $exists: true, $ne: '' },
+      'kyc.originDetails.stateOfOrigin': { $exists: true, $ne: '' },
+      'kyc.originDetails.lgaOfOrigin': { $exists: true, $ne: '' },
+      'kyc.originDetails.townOfOrigin': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.stateOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.lgaOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.townOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.residentialAddress': { $exists: true, $ne: '' }
+    });
+
+    if (usersWithCompleteKYC.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No complete KYC submissions found to approve'
+      });
+    }
+
+    // Track results
+    const approvedUsers = [];
+    const failedUsers = [];
+
+    // Approve each KYC
+    for (const user of usersWithCompleteKYC) {
+      try {
+        user.kyc.status = 'verified';
+        user.kyc.verificationDate = new Date();
+        user.kyc.verifiedBy = req.user._id;
+        user.kyc.completionPercentage = 100;
+        user.kyc.rejectionReason = null;
+
+        await user.save();
+
+        approvedUsers.push({
+          userId: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email
+        });
+
+        // Send notification to user
+        try {
+          if (Notification) {
+            await Notification.create({
+              userId: user._id,
+              title: 'KYC Verified! ✅',
+              message: 'Congratulations! Your KYC verification has been approved. You now have full access to all features.',
+              type: 'success',
+              category: 'kyc'
+            });
+          }
+        } catch (notifError) {
+          console.error(`Notification error for user ${user._id}:`, notifError);
+        }
+      } catch (saveError) {
+        console.error(`Failed to approve KYC for user ${user._id}:`, saveError);
+        failedUsers.push({
+          userId: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          error: saveError.message
+        });
+      }
+    }
+
+    console.log(`Bulk KYC approval: ${approvedUsers.length} approved, ${failedUsers.length} failed`);
+
+    res.json({
+      success: true,
+      message: `Successfully approved ${approvedUsers.length} KYC submission(s)`,
+      data: {
+        totalProcessed: usersWithCompleteKYC.length,
+        approved: approvedUsers.length,
+        failed: failedUsers.length,
+        approvedUsers: approvedUsers.map(u => ({ userId: u.userId, name: u.name })),
+        failedUsers: failedUsers.length > 0 ? failedUsers : undefined
+      }
+    });
+  } catch (error) {
+    console.error('Bulk approve KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Get count of complete pending KYCs
+ * @route   GET /api/admin/kyc/bulk-approve/count
+ * @access  Private/Admin
+ */
+exports.getCompleteKYCCount = async (req, res) => {
+  try {
+    const count = await User.countDocuments({
+      'kyc.status': 'pending',
+      'kyc.personalInfo.phone': { $exists: true, $ne: '' },
+      'kyc.taxVehicleInfo.plateNumber': { $exists: true, $ne: '' },
+      'kyc.identityVerification.nin': { $exists: true, $ne: '' },
+      'kyc.identityVerification.bvn': { $exists: true, $ne: '' },
+      'kyc.originDetails.stateOfOrigin': { $exists: true, $ne: '' },
+      'kyc.originDetails.lgaOfOrigin': { $exists: true, $ne: '' },
+      'kyc.originDetails.townOfOrigin': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.stateOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.lgaOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.townOfResidence': { $exists: true, $ne: '' },
+      'kyc.residentialDetails.residentialAddress': { $exists: true, $ne: '' }
+    });
+    console.log(count, 'hello world')
+
+    res.json({
+      success: true,
+      count: count
+    });
+  } catch (error) {
+    console.error('Get complete KYC count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Reset KYC (allow user to resubmit)
 // @route   PUT /api/admin/kyc/:userId/reset
 // @access  Private/Admin
@@ -1023,6 +1199,128 @@ exports.resetKYC = async (req, res) => {
     });
   } catch (error) {
     console.error('Reset KYC error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+
+/**
+ * @desc    Bulk deactivate/activate users
+ * @route   POST /api/admin/users/bulk-status
+ * @access  Private/Admin
+ */
+exports.bulkUpdateUserStatus = async (req, res) => {
+  try {
+    const {
+      userIds,        // Array of user IDs
+      accountStatus,  // 'active' or 'suspended'
+      reason,         // Reason for action
+      startDate,      // Optional: filter by date range
+      endDate         // Optional: filter by date range
+    } = req.body;
+
+    // Validate status
+    if (!['active', 'suspended'].includes(accountStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account status. Use "active" or "suspended"'
+      });
+    }
+
+    let query = {};
+
+    // Option 1: Use specific user IDs
+    if (userIds && userIds.length > 0) {
+      query._id = { $in: userIds };
+    }
+    // Option 2: Use date range
+    else if (startDate || endDate) {
+      query.createdAt = {};
+
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = start;
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide either userIds or date range'
+      });
+    }
+
+    // Don't deactivate super-admins
+    query.role = { $ne: 'super-admin' };
+
+    // Count users before update
+    const usersToUpdate = await User.countDocuments(query);
+
+    if (usersToUpdate === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No users found matching the criteria'
+      });
+    }
+
+    // Perform bulk update
+    const result = await User.updateMany(
+      query,
+      {
+        $set: {
+          accountStatus: accountStatus,
+          updatedAt: new Date()
+        },
+        $push: {
+          statusHistory: {
+            status: accountStatus,
+            reason: reason || `Bulk ${accountStatus === 'suspended' ? 'suspension' : 'activation'} by admin`,
+            changedBy: req.user._id,
+            changedAt: new Date()
+          }
+        }
+      }
+    );
+
+    // Send notifications to affected users
+    // const notificationService = require('../services/notificationService');
+    // const affectedUsers = await User.find(query).select('_id');
+
+    // for (const user of affectedUsers) {
+    //   if (accountStatus === 'suspended') {
+    //     await notificationService.accountSuspended(
+    //       user._id,
+    //       reason || 'Bulk suspension by admin'
+    //     );
+    //   } else {
+    //     await notificationService.accountActivated(user._id);
+    //   }
+    // }
+
+    console.log(`Bulk status update: ${result.modifiedCount} users ${accountStatus}`);
+
+    res.json({
+      success: true,
+      message: `Successfully ${accountStatus === 'suspended' ? 'suspended' : 'activated'} ${result.modifiedCount} users`,
+      data: {
+        totalMatched: usersToUpdate,
+        totalModified: result.modifiedCount,
+        status: accountStatus,
+        reason: reason
+      }
+    });
+
+  } catch (error) {
+    console.error('Bulk update user status error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

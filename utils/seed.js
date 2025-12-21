@@ -33,7 +33,7 @@ const users = [
       cardId: 'CRD001'
     },
     kyc: {
-      status: 'verified',
+      status: 'pending',
       verificationDate: new Date()
     }
   },
@@ -89,7 +89,7 @@ const importData = async () => {
       const transactions = [
         {
           amount: 5000,
-          type: 'Deposit',
+          type: 'deposit',
           status: 'completed',
           reference: `REF-${Date.now()}-1`,
           description: 'Wallet funding via Paystack',
@@ -97,7 +97,7 @@ const importData = async () => {
         },
         {
           amount: 3000,
-          type: 'Tax Payment',
+          type: 'tax payment',
           status: 'completed',
           reference: `REF-${Date.now()}-2`,
           description: 'Transportation tax payment',
@@ -105,7 +105,7 @@ const importData = async () => {
         },
         {
           amount: 10000,
-          type: 'Deposit',
+          type: 'deposit',
           status: 'completed',
           reference: `REF-${Date.now()}-3`,
           description: 'Wallet funding via Paystack',
@@ -161,7 +161,7 @@ const importData = async () => {
       await Notification.create([
         {
           userId: user._id,
-          title: 'Welcome to Tax Payment System',
+          title: 'Welcome to tax payment System',
           message: 'Your account has been successfully created!',
           type: 'success',
           category: 'system',

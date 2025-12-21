@@ -412,6 +412,8 @@ exports.createStateAdmin = async (req, res) => {
             emailVerified: true
         });
 
+        stateAdmin.generateTaxId();
+
         await stateAdmin.save();
 
         res.status(201).json({

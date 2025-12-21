@@ -1,8 +1,9 @@
 // ✅ DATABASE SEEDER - Populate test data for revenue dashboard
 
 const mongoose = require('mongoose');
-const User = require('./models/User');
-const TaxPayment = require('./models/TaxPayment');
+const User = require('../models/User');
+const { TaxPayment } = require('../models/TaxPayment');
+const { Taxpayment } = require('../models/TaxPayment')
 
 // Nigerian States with their LGAs
 const statesWithLGAs = {
@@ -77,7 +78,7 @@ const clearData = async () => {
   try {
     // Only clear users and payments, keep admin accounts
     await User.deleteMany({ role: { $nin: ['admin', 'superadmin'] } });
-    await TaxPayment.deleteMany({});
+    await Taxpayment.deleteMany({});
     console.log('✅ Cleared existing data');
   } catch (error) {
     console.error('❌ Error clearing data:', error);
@@ -111,7 +112,7 @@ const createUsers = async () => {
       accountStatus: Math.random() > 0.1 ? 'active' : 'suspended', // 90% active
       walletBalance: Math.floor(Math.random() * 500000),
       kyc: {
-        status: ['verified', 'pending', 'rejected', 'none'][Math.floor(Math.random() * 4)],
+        status: ['verified', 'pending', 'rejected'][Math.floor(Math.random() * 4)],
         submittedAt: Math.random() > 0.5 ? randomDate(new Date(2024, 0, 1), new Date()) : undefined
       }
     });
@@ -188,7 +189,7 @@ const createPayments = async (users) => {
       nextDueDate.setMonth(nextDueDate.getMonth() + 1);
     }
 
-    const payment = new TaxPayment({
+    const payment = new TaxPayment.create({
       user: user._id,
       taxPaymentId: `TXP${Date.now()}${i}`,
       taxType,
@@ -291,7 +292,7 @@ const seedDatabase = async () => {
     await connectDB();
 
     // Clear existing data
-    await clearData();
+    // await clearData();
 
     // Create data
     const users = await createUsers();
