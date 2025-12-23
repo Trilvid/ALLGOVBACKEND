@@ -8,7 +8,7 @@ async function createAutoSubscription(userId, taxType, amount, paymentPlan, taxP
   try {
     console.log(`🔄 Checking subscription creation for ${taxType} - ${paymentPlan}`);
 
-    const recurringPlans = ['Monthly', 'Quarterly', 'Annually'];
+    const recurringPlans = ['One-time', 'Monthly', 'Quarterly', 'Annually'];
 
     if (!recurringPlans.includes(paymentPlan)) {
       console.log(`⏭️  One-time payment - no subscription created`);
@@ -20,6 +20,9 @@ async function createAutoSubscription(userId, taxType, amount, paymentPlan, taxP
     let expiryDate = new Date();
 
     switch (normalizedPlan) {
+      case 'One-time':
+        expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000);
+        break;
       case 'Monthly':
         expiryDate.setMonth(expiryDate.getMonth() + 1);
         break;
@@ -381,6 +384,9 @@ exports.createSubscription = async (req, res) => {
     let expiryDate = new Date();
 
     switch (frequency) {
+      case 'One-time':
+        expiryDate.setTime(expiryDate.getTime() + 24 * 60 * 60 * 1000);
+        break;
       case 'Monthly':
         expiryDate.setMonth(expiryDate.getMonth() + 1);
         break;

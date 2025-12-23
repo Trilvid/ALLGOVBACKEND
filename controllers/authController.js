@@ -28,6 +28,7 @@ exports.register = async (req, res) => {
     }
 
     const { firstname, lastname, email, password, phone } = req.body;
+    const username = firstname + '_' + lastname;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -40,6 +41,7 @@ exports.register = async (req, res) => {
 
     // Create new user
     const user = new User({
+      username,
       firstName: firstname,
       lastName: lastname,
       email,

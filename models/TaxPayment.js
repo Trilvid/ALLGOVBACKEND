@@ -124,7 +124,7 @@ const taxSubscriptionSchema = new mongoose.Schema({
   },
   frequency: {
     type: String,
-    enum: ['Monthly', 'Quarterly', 'Annually', 'monthly', 'quarterly', 'annually'],
+    enum: ['One-time', 'Monthly', 'Quarterly', 'Annually', 'monthly', 'quarterly', 'annually'],
     required: true
   },
   status: {
@@ -180,6 +180,9 @@ taxSubscriptionSchema.methods.calculateNextPayment = function () {
   const current = this.nextPaymentDate || new Date();
 
   switch (this.frequency) {
+    case 'One-time':
+      this.nextPaymentDate = new Date(current.setTime(current.getTime() + 24 * 60 * 60 * 1000));
+      break;
     case 'Monthly':
     case 'monthly':
       this.nextPaymentDate = new Date(current.setMonth(current.getMonth() + 1));

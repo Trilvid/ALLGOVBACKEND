@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     trim: true,
-    default: 'tax user'
+    default: ''
   },
   email: {
     type: String,
