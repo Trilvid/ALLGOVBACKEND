@@ -542,6 +542,36 @@ class EmailService {
       html,
     });
   }
+
+  // -----------------------------
+  // CONTACT FORM EMAIL
+  // -----------------------------
+  async sendContactFormEmail({ name, email, message }) {
+    const html = `
+    <div style="font-family: Arial; line-height: 1.6;">
+      <h2 style="color:#0F58E8;">New Contact Form Message</h2>
+
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+
+      <hr />
+
+      <p><strong>Message:</strong></p>
+      <p>${message}</p>
+
+      <hr />
+      <p>Sent from website contact form</p>
+    </div>
+  `;
+
+    return this.sendEmail({
+      email: 'support@allgovpay.com', // webmail inbox
+      subject: "New Contact Form Submission",
+      html,
+    });
+  }
+
+
 }
 
 module.exports = new EmailService();

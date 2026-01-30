@@ -9,7 +9,7 @@ const EmailService = require('./../services/emailService')
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -31,6 +31,37 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+
+exports.submitContactForm = async (req, res) => {
+  const { name, email, message } = req.body;
+
+  if (!name || !email || !message) {
+    return res.status(400).json({
+      success: false,
+      message: "All fields are required",
+    });
+  }
+
+  const result = await EmailService.sendContactFormEmail({
+    name,
+    email,
+    message,
+  });
+
+  if (!result.success) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send message",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Message sent successfully",
+  });
+};
+
+
 // @desc    Update user profile
 // @route   PUT /api/user/profile
 // @access  Private
@@ -46,7 +77,7 @@ exports.updateProfile = async (req, res) => {
     } = req.body;
 
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -96,7 +127,7 @@ exports.updateVehicleInfo = async (req, res) => {
     } = req.body;
 
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -147,7 +178,7 @@ exports.uploadProfileImage = async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -157,7 +188,7 @@ exports.uploadProfileImage = async (req, res) => {
 
     // Upload file (you'll implement this based on your storage choice)
     const imageUrl = await uploadFile(req.file);
-    
+
     user.profileImage = imageUrl;
     await user.save();
 
@@ -184,7 +215,7 @@ exports.updateSettings = async (req, res) => {
     const { notifications, twoFactorAuth, language, currency, emailNotification, smsAlert, autoRenewal, reminderBeforeExpiry } = req.body;
 
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -199,11 +230,11 @@ exports.updateSettings = async (req, res) => {
         ...notifications
       };
     }
-    
+
     if (twoFactorAuth !== undefined) {
       user.settings.twoFactorAuth = twoFactorAuth;
     }
-    
+
     if (language) user.settings.language = language;
     if (currency) user.settings.currency = currency;
 
@@ -240,7 +271,7 @@ exports.requestPinChangeCode = async (req, res) => {
 
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Store code with expiry (10 minutes)
     user.pinChangeCode = code;
     user.pinChangeCodeExpiry = Date.now() + 10 * 60 * 1000;
@@ -259,10 +290,10 @@ exports.requestPinChangeCode = async (req, res) => {
 
     // console.log({code, maskedEmail})
 
-    res.json({ 
+    res.json({
       code,
       email: maskedEmail,
-      message: 'Verification code sent to your email' 
+      message: 'Verification code sent to your email'
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -287,11 +318,11 @@ exports.changeTransactionPin = async (req, res) => {
     // Hash and save new PIN
     const hashedPin = await bcrypt.hash(newPin, 10);
     user.transactionPin = hashedPin;
-    
+
     // Clear verification code
     user.pinChangeCode = undefined;
     user.pinChangeCodeExpiry = undefined;
-    
+
     await user.save();
 
     res.json({ message: 'Transaction PIN changed successfully' });
@@ -321,8 +352,8 @@ exports.verifyCode = async (req, res) => {
       return res.status(400).json({ message: 'Verification code has expired' });
     }
 
-    res.json({ message: 'Verification code is valid' });    
-    
+    res.json({ message: 'Verification code is valid' });
+
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -334,25 +365,25 @@ exports.verifyTransactionPin = async (req, res) => {
     const { pin } = req.body;
 
     if (!pin || !/^\d{4}$/.test(pin)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Please provide a valid 4-digit PIN' 
+        message: 'Please provide a valid 4-digit PIN'
       });
     }
 
     const user = await User.findById(req.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'User not found' 
+        message: 'User not found'
       });
     }
 
     // Check if user has set a transaction PIN
     if (!user.transactionPin) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Please set up your transaction PIN first' 
+        message: 'Please set up your transaction PIN first'
       });
     }
 
@@ -361,22 +392,22 @@ exports.verifyTransactionPin = async (req, res) => {
     const isValidPin = await bcrypt.compare(pin, user.transactionPin);
 
     if (!isValidPin) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: 'Invalid transaction PIN' 
+        message: 'Invalid transaction PIN'
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
-      message: 'PIN verified successfully' 
+      message: 'PIN verified successfully'
     });
   } catch (error) {
     console.error('Verify PIN error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -388,7 +419,7 @@ exports.verifyTransactionPin = async (req, res) => {
 exports.submitKYC = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -450,7 +481,7 @@ exports.submitKYC = async (req, res) => {
     const completionPercentage = calculateKYCCompletion(user.kyc);
     user.kyc.completionPercentage = completionPercentage;
     user.kyc.submittedAt = new Date();
-    
+
     // If all required fields are filled, set status to pending review
     if (completionPercentage >= 80) {
       user.kyc.status = 'pending';
@@ -640,7 +671,7 @@ exports.deleteAccount = async (req, res) => {
     }
 
     const user = await User.findById(req.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -674,7 +705,7 @@ exports.deleteAccount = async (req, res) => {
     // Soft delete or hard delete based on your preference
     user.accountStatus = 'suspended';
     await user.save();
-    
+
     // Or hard delete:
     // await User.findByIdAndDelete(req.userId);
 

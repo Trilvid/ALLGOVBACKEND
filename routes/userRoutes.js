@@ -12,7 +12,8 @@ const {
   requestPinChangeCode,
   changeTransactionPin,
   verifyCode,
-  verifyTransactionPin
+  verifyTransactionPin,
+  submitContactForm
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/auth');
 const { updateProfileValidation, validate } = require('../middleware/validation');
@@ -104,6 +105,7 @@ router.delete('/account', protect, deleteAccount);
 // public use
 
 router.get('/checkpayment/:id', getPaymentDetails);
+router.post("/contact", submitContactForm);
 
 // ============================================
 // ADMIN ROUTES                             
